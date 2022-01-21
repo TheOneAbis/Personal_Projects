@@ -51,16 +51,23 @@ class Triangle3D extends PIXI.Graphics {
         this.z = p1.z;
     }
 
-    Draw(shadeValue) {
+    Draw(shadeValue, r, g, b) {
         this.x = this.Projected.Points[0].x;
         this.y = this.Projected.Points[0].y;
         this.z = this.Projected.Points[0].z;
         // Draw the triangle projected onto 2D screen
-        shadeValue = shadeValue < 16 ? `0${shadeValue.toString(16)}` : shadeValue.toString(16);
+        let red = Math.max(parseInt(r % 256 * shadeValue), 0), 
+        green = Math.max(parseInt(g % 256 * shadeValue), 0), 
+        blue = Math.max(parseInt(b % 256 * shadeValue), 0);
+        red = red < 16 ? `0${red.toString(16)}` : red.toString(16);
+        green = green < 16 ? `0${green.toString(16)}` : green.toString(16);
+        blue = blue < 16 ? `0${blue.toString(16)}` : blue.toString(16);
+        //console.log(`${red}, ${green}, ${blue} \n`);
+
         // Converts Color attributes to hex string, then converts it to decimal, used for fill color param
-        let triColorDecimal = HexToDec((shadeValue + shadeValue + shadeValue).toUpperCase());
+        let triColorDecimal = HexToDec((red + green + blue).toUpperCase());
         this.beginFill(triColorDecimal, 1); 
-        this.lineStyle(1, triColorDecimal, 1);
+        this.lineStyle(1, triColorDecimal, 0);
         this.moveTo(0, 0);
         this.lineTo(this.Projected.Points[1].x - this.Projected.Points[0].x, this.Projected.Points[1].y - this.Projected.Points[0].y);
         this.lineTo(this.Projected.Points[2].x - this.Projected.Points[0].x, this.Projected.Points[2].y - this.Projected.Points[0].y);
@@ -118,12 +125,10 @@ class Mesh {
                     tri.Points[i], this.matRotZ), this.matRotX), this.matRotY);
                 tri.Points[i].z += this.offsetZ;
             }
-            //tri.Center.z = (tri.Points[0].z + tri.Points[1].z + tri.Points[2].z) / 3;
         }
     }
 
     Project() {
-        let trisToDraw = [];
         for (let tri of this.tris) {
             tri.clear(); // Clear previous triangle's drawing for redraw
 
@@ -145,7 +150,8 @@ class Mesh {
                     tri.Projected.Points[i].y *= 0.5 * sceneHeight;
                 }
                 tri.Projected.CenterZ = (tri.Projected.Points[0].z + tri.Projected.Points[1].z + tri.Projected.Points[2].z) / 3;
-                trisToDraw.push(tri);
+
+                tri.Draw(Dot(tri.Normal, lightDir), 255, 255, 255);
             }
             /*
             if (this.tris.indexOf(tri, 0) == 5) {
@@ -155,12 +161,8 @@ class Mesh {
                 console.log(""); }
             */
         }
-        trisToDraw = trisToDraw.sort((tri1, tri2) => (tri2.Projected.CenterZ - tri1.Projected.CenterZ));
-        //console.log(trisToDraw);
-        for (let tri of trisToDraw) {
-            // Draw tri with applied shading
-            tri.Draw(parseInt(Math.abs(255 * Dot(tri.Normal, lightDir))));
-        }
+        // Sort
+        animation.stage.children.sort((tri1, tri2) => (tri2.Projected.CenterZ - tri1.Projected.CenterZ));
     }
 }
 
@@ -210,7 +212,7 @@ function setup() {
         }
     });
 
-    meshLoadPromise.then(()=> mesh.Rotate(Math.PI / 3, 3 * Math.PI / 4, 0)); // Turn it around so blade faces up
+    meshLoadPromise.then(()=> mesh.Rotate(7 * Math.PI / 6, 0, 0)); // Turn it around so blade faces up
     
     // Create the Projection Matrix
     near = 0.1; // Near Camera Clipping Plane
@@ -239,7 +241,7 @@ function update() {
 
     // Only alter the mesh after it's been loaded
     meshLoadPromise.then(() => {
-        mesh.Rotate(0, 0, 0);
+        mesh.Rotate(0, theta, 0);
         mesh.Project();
     });
     
