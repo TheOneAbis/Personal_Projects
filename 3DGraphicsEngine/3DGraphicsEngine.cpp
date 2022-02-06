@@ -70,6 +70,8 @@ public:
 
     bool OnUserCreate() override
     {
+        // Cube is made of 6 faces, each face is made of 2 right triangles. 
+        // These vertices define the triangless in a clockwise fashion.
         meshCube.tris = 
         {
             // South
@@ -98,11 +100,11 @@ public:
         };
 
         // Projection Matrix
-        float fNear = 0.1f;
-        float fFar = 1000.0f;
-        float fFov = 90.0f;
-        float fAspectRatio = (float)ScreenHeight() / (float)ScreenWidth();
-        float fFovRad = 1.0f / tanf(fFov * 0.5f / 180.0f * 3.14159f); // 1 / fov converted to rads
+        float fNear = 0.1f; // Camera Near clipping view
+        float fFar = 1000.0f; // Farthest camera can see
+        float fFov = 90.0f; // field of view angle, in degs
+        float fAspectRatio = (float)ScreenHeight() / (float)ScreenWidth(); // Usually this is 9:16 for the average 1920x1080 monitor
+        float fFovRad = 1.0f / tanf(fFov * 0.5f / 180.0f * 3.14159f); // 1/tan(fov/2) converted to rads
 
         matProj.m[0][0] = fAspectRatio * fFovRad;
         matProj.m[1][1] = fFovRad;
@@ -141,6 +143,7 @@ public:
         for (auto tri : meshCube.tris) 
         {
             triangle triProjected, triTranslated, triRotatedZ, triRotatedZX;
+
 
             MultiplyMatrixVector(tri.p[0], triRotatedZ.p[0], matRotZ);
             MultiplyMatrixVector(tri.p[1], triRotatedZ.p[1], matRotZ);
