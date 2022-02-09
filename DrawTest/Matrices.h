@@ -134,6 +134,43 @@ public:
         m[3][3] = 0.0f;
         return m;
     }
+    
+    // Point At Matrix (Point camera at object)
+    static float** PointAt(Vector3D& pos, Vector3D& target, Vector3D& up)
+    {
+        // New Forward direction
+        Vector3D newForward = (target - pos).Normalized();
+
+        // New Up Direction
+        Vector3D a = newForward * (up * newForward);
+        Vector3D newUp = (up - a).Normalized();
+
+        // New Right Direction
+        Vector3D newRight = Vector3D::Cross(newUp, newForward);
+
+        float** m = MakeNewArr();
+        m[0][0] = newRight.x; m[0][1] = newRight.y; m[0][2] = newRight.z; m[0][3] = 0;
+        m[1][0] = newUp.x;    m[1][1] = newUp.y;    m[1][2] = newUp.z;    m[1][3] = 0;
+        m[2][0] = newForward.x; m[2][1] = newForward.y; m[2][2] = newForward.z; m[2][3] = 0;
+        m[3][0] = pos.x;      m[3][1] = pos.y;      m[3][2] = pos.z;      m[3][3] = 1;
+        
+        return m;
+    }
+
+    // Only works for rotation/translation matrices
+    static float** SimpleInverse(float** original)
+    {
+        float** m = MakeNewArr();
+        m[0][0] = original[0][0]; m[0][1] = original[1][0]; m[0][2] = original[2][0]; m[0][3] = 0;
+        m[1][0] = original[0][1]; m[1][1] = original[1][1]; m[1][2] = original[2][1]; m[1][3] = 0;
+        m[2][0] = original[0][2]; m[2][1] = original[1][2]; m[2][2] = original[2][2]; m[2][3] = 0;
+        m[3][0] = -(original[3][0] * m[0][0] + original[3][1] * m[1][0] + original[3][2] * m[2][0]);
+        m[3][1] = -(original[3][0] * m[0][1] + original[3][1] * m[1][1] + original[3][2] * m[2][1]);
+        m[3][2] = -(original[3][0] * m[0][2] + original[3][1] * m[1][2] + original[3][2] * m[2][2]);
+        m[3][3] = 1;
+
+        return m;
+    }
 
     // Multiply a Vector3 by a 4 X 4 Matrix, returns the new altered Vector3
     static Vector3D MultiplyVectorByMatrix4(const Vector3D& v, float** matrix4x4, bool del) {
@@ -150,13 +187,11 @@ public:
             alteredVector.setZ(alteredVector.getZ() / w);
         }
 
-        // delete the matrix is specified to not be used anymore
+        // delete the matrix if specified to not be used anymore
         if (del)
         {
             for (int i = 0; i < arrLen4x4; i++)
-            {
                 delete[] matrix4x4[i];
-            }
             delete[] matrix4x4;
         }
 
@@ -178,3 +213,10 @@ private:
         return m;
     }
 };
+
+void DeleteMatrix(float** matrix, int matHeight)
+{
+    for (int i = 0; i < matHeight; i++)
+        delete[] matrix[i];
+    delete[] matrix;
+}

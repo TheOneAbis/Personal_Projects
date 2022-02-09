@@ -1,26 +1,40 @@
 #pragma once
 #include "Triangle3D.h"
 #include "Matrices.h"
+#include "Utilities.h"
+#include "Camera.h"
+
 #include <fstream>
 #include <strstream>
-#include "Utilities.h"
+
 
 class Mesh
 {
 private:
     std::vector<Triangle3D> tris;
     std::vector<Vector3D> vertices;
-    Vector3D pivot, offset, Right, Up, Forward;
+    Vector3D Pivot, Position, Right, Up, Forward;
 
 public:
     static Vector3D GlobalRight() { return Vector3D(1, 0, 0); }
     static Vector3D GlobalUp() { return Vector3D(0, 1, 0); }
     static Vector3D GlobalForward() { return Vector3D(0, 0, 1); }
 
+    Vector3D GetPosition() { return Position; }
+
+    void Move(float x, float y, float z)
+    {
+        Vector3D offset(x, y, z);
+        Position += offset;
+        for (Vector3D& vec : vertices)
+            vec += offset;
+    }
+
+    // Creates a new Mesh Object from a Loaded OBJ file
     Mesh(string objFile, const Vector3D& offset)
     {
-        this->pivot = Vector3D(0, 0, 0);
-        this->offset = offset;
+        this->Pivot = Vector3D(0, 0, 0);
+        this->Position = offset;
 
         Right = Vector3D(1, 0, 0);
         Up = Vector3D(0, 1, 0);
@@ -31,11 +45,12 @@ public:
         // Offset it out so it's not on top of the camera
         for (Vector3D& vec : vertices)
         {
-            Vector3D temp = (this->offset + pivot);
+            Vector3D temp = (this->Position + this->Pivot);
             vec += temp;
         }
     }
 
+    // Loads the OBJ file into the mesh object
     bool LoadOBJ(string fileName)
     {
         ifstream file(fileName);
@@ -75,6 +90,7 @@ public:
         }
     }
 
+    // Rotate the mesh by z, x, then y, using either local or global coords
     void Rotate(float xRad, float yRad, float zRad, bool isLocal)
     {
         if (!isLocal) 
@@ -88,14 +104,13 @@ public:
 
         for (Vector3D& vec : vertices)
         {
-            /*            LEARNED AN IMPORTANT LESSON HERE
+            /*                              NOTE
             NEVER set vec(or anything used in a different thread for that matter) 
-            to something that isn't its final value in multithreaded applications 
-            */
+            to something that isn't its final value in multithreaded applications */
             Vector3D temp = vec; 
 
             // Bring vertex to origin point before rotating
-            temp -= offset;
+            temp -= Position;
 
             // Rotate mesh around Z axis, then X axis, then Y axis around local or global axes
             temp = isLocal ? Mat3x3::MultiplyVectorByMatrix3(Mat3x3::MultiplyVectorByMatrix3(Mat3x3::MultiplyVectorByMatrix3(
@@ -104,33 +119,52 @@ public:
                     temp, Mat3x3::Rotation(Mesh::GlobalForward(), zRad), true), Mat3x3::Rotation(Mesh::GlobalRight(), xRad), true), Mat3x3::Rotation(Mesh::GlobalUp(), yRad), true);
 
             // Return vertex to offset point
-            temp += offset;
+            temp += Position;
             vec = temp;
         }
-        for (Triangle3D &tri : tris)
-            tri.SetNormal(Vector3D::Cross(tri[1] - tri[0], tri[2] - tri[0]).Normalized());
     }
 
-    // Project the 3D mesh onto the screen
-    void Draw(float fNear, float fFar, float fov, Vector3D& camera, Vector3D& lightDir, RenderWindow* window) 
+    // Project the 3D mesh onto the screen 
+    // (Computes the viewed version of it for the camera, then projects)
+    void Draw(float fNear, float fFar, float fov, Camera& camera, Vector3D& lightDir, RenderWindow* window) 
     {
+        //float** cameraMat = Mat4x4::PointAt(camera.position, camera.Target, camera.GetUp());
+        //float** viewMat = Mat4x4::SimpleInverse(cameraMat);
+
         float sceneWidth = (float)window->getSize().x, sceneHeight = (float)window->getSize().y;
         float aspectRatio = sceneHeight / sceneWidth;
 
         vector<Triangle3D*> trisToDraw;
         for (Triangle3D& tri : tris) 
         {
-            // Only project & draw visible triangles (if angle between normal and any pt on the tri relative to camera is <= 90deg)
-            if (tri.Normal().Dot(tri[0] - camera) < 0.0) 
+            // Update the tri's normal
+            tri.SetNormal(Vector3D::Cross(tri[1] - tri[0], tri[2] - tri[0]).Normalized());
+
+            // Calculate triangle's viewed triangle points
+            for (short i = 0; i < tri.Count(); i++)
             {
-                float shade = Clamp(255 * (tri.Normal() * lightDir), 30, 225);
+                tri.pointsRelToCam[i] = Mat3x3::MultiplyVectorByMatrix3(
+                    Mat3x3::MultiplyVectorByMatrix3(
+                        tri[i] - camera.position, Mat3x3::Rotation(camera.Right, camera.WorldPhi), true),
+                    Mat3x3::Rotation(Mesh::GlobalUp(), camera.WorldTheta), true);
+            }
+
+            tri.SetCamNormal(Vector3D::Cross(tri.pointsRelToCam[1] - tri.pointsRelToCam[0], tri.pointsRelToCam[2] - tri.pointsRelToCam[0]).Normalized());
+
+            //if (tri.getX() == tris[0].getX()) cout << tri.pointsRelToCam[0].x << " " << tri.pointsRelToCam[0].y << " " << tri.pointsRelToCam[0].z << endl;
+            // Only project & draw visible triangles (if angle between normal and any pt on the tri relative to camera is <= 90deg)
+            if (tri.CamNormal().Dot((tri.pointsRelToCam[0]).Normalized()) < 0.0)
+            {
+                //cout << camera.position.x << endl;
+                float shade = Clamp(255 * (tri.CamNormal() * lightDir), 30, 225);
                 trisToDraw.push_back(&tri);
 
                 VertexArray displayTri(Triangles, 3);
-                for (int i = 0; i < tri.Count(); i++) 
+                for (int i = 0; i < tri.Count(); i++)
                 {
                     // Project triangles to 2D screen using Projection
-                    Vector3D projVector = Mat4x4::MultiplyVectorByMatrix4(tri[i],  Mat4x4::Projection(fNear, fFar, fov, aspectRatio), true);
+                    Vector3D projVector = Mat4x4::MultiplyVectorByMatrix4(tri.pointsRelToCam[i], Mat4x4::Projection(fNear, fFar, fov, aspectRatio), true);
+                    
                     projVector.x += 1.0; // Move mesh to middle of screen
                     projVector.y += 1.0;
                     projVector.x *= 0.5 * sceneWidth; // scale it out from 1px
@@ -141,9 +175,12 @@ public:
                     displayTri[i] = (projVector2D);
                 }
                 tri.SetProjected(displayTri);
-                tri.setCenterZ((tri[0].getZ() + tri[1].getZ() + tri[2].getZ()) / 3.0f);
+                tri.setCenterZ((tri.pointsRelToCam[0].z + tri.pointsRelToCam[1].z + tri.pointsRelToCam[2].z) / 3.0f);
             }
         }
+        //DeleteMatrix(cameraMat, 4); // Delete the camera PointAt matrix array
+        //DeleteMatrix(viewMat, 4); // Delete the Camera LookAt matrix array
+
         // Sort draw order, draw tris farthest to nearest
         sort(trisToDraw.begin(), trisToDraw.end(), [](Triangle3D* t1, Triangle3D* t2)
         {
@@ -156,6 +193,4 @@ public:
     }
 
     vector<Triangle3D> GetTris() { return tris; }
-
-    void SetPivot(Vector3D& newLoc) { this->pivot = newLoc; }
 };

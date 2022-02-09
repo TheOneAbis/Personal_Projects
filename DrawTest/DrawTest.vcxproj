@@ -146,6 +146,7 @@
     <ClCompile Include="Triangle3D.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="Matrices.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="Utilities.h" />
