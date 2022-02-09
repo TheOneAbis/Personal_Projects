@@ -5,12 +5,15 @@ struct Triangle3D
 {
 private:
     std::vector<Vector3D*> points;
+    
     VertexArray projected;
     float centerZ;
-    Vector3D normal;
+    Vector3D normal, camNormal;
     float X, Y, Z;
 
 public:
+
+    Vector3D pointsRelToCam[3];
 
     // Creates a new Triangle with 3 points p1, p2, and p3, defined in a CLOCKWISE fashion
     Triangle3D(Vector3D* p1, Vector3D* p2, Vector3D* p3)
@@ -34,11 +37,11 @@ public:
     Vector3D Normal() { return normal; }
     void SetNormal(Vector3D value) { this->normal = value; }
 
+    Vector3D CamNormal() { return camNormal; }
+    void SetCamNormal(Vector3D value) { this->camNormal = value; }
+
     VertexArray GetProjected() { return projected; }
-    void SetProjected(VertexArray& newTri) 
-    { 
-        this->projected = newTri;
-    }
+    void SetProjected(VertexArray& newTri) { this->projected = newTri; }
 
     int Count() { return points.size(); }
 
