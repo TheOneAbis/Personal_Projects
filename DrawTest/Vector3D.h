@@ -124,6 +124,17 @@ public:
     float Dot(const Vector3D& v) {
         return this->x * v.x + this->y * v.y + this->z * v.z;
     }
+
+    static Vector3D IntersectPlane(Vector3D& plane_p, Vector3D& plane_n, Vector3D lineStart, Vector3D lineEnd)
+    {
+        float plane_d = -(plane_n.Normalized() * plane_p);
+        float ad = lineStart * plane_n;
+        float bd = lineEnd * plane_n;
+        float t = (-plane_d - ad) / (bd - ad);
+        Vector3D lineStartToEnd = lineEnd - lineStart;
+        Vector3D lineToIntersect = lineStartToEnd * t;
+        return lineStart + lineToIntersect;
+    }
     
     const float getX() { return x; }
     const float getY() { return y; }

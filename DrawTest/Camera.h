@@ -11,7 +11,7 @@ public:
 	Camera(Vector3D pos, Vector3D lookDir)
 	{
 		position = pos;
-		Forward = lookDir;
+		Forward = lookDir.Normalized();
 		Up = Vector3D(0, 1, 0);
 		Right = Vector3D::Cross(Up, Forward);
 		Target = position + Forward;

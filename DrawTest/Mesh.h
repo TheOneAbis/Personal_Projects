@@ -16,9 +16,6 @@ private:
     Vector3D Pivot, Position, Right, Up, Forward;
 
 public:
-    static Vector3D GlobalRight() { return Vector3D(1, 0, 0); }
-    static Vector3D GlobalUp() { return Vector3D(0, 1, 0); }
-    static Vector3D GlobalForward() { return Vector3D(0, 0, 1); }
 
     Vector3D GetPosition() { return Position; }
 
@@ -96,9 +93,9 @@ public:
         if (!isLocal) 
         {
             Up = Mat3x3::MultiplyVectorByMatrix3(Mat3x3::MultiplyVectorByMatrix3(Mat3x3::MultiplyVectorByMatrix3(
-                Up, Mat3x3::Rotation(Mesh::GlobalForward(), zRad), true), Mat3x3::Rotation(Mesh::GlobalRight(), xRad), true), Mat3x3::Rotation(Mesh::GlobalUp(), yRad), true);
+                Up, Mat3x3::Rotation(GlobalForward(), zRad), true), Mat3x3::Rotation(GlobalRight(), xRad), true), Mat3x3::Rotation(GlobalUp(), yRad), true);
             Forward = Mat3x3::MultiplyVectorByMatrix3(Mat3x3::MultiplyVectorByMatrix3(Mat3x3::MultiplyVectorByMatrix3(
-                Forward, Mat3x3::Rotation(Mesh::GlobalForward(), zRad), true), Mat3x3::Rotation(Mesh::GlobalRight(), xRad), true), Mat3x3::Rotation(Mesh::GlobalUp(), yRad), true);
+                Forward, Mat3x3::Rotation(GlobalForward(), zRad), true), Mat3x3::Rotation(GlobalRight(), xRad), true), Mat3x3::Rotation(GlobalUp(), yRad), true);
             Right = Vector3D::Cross(Forward, Up);
         }
 
@@ -116,7 +113,7 @@ public:
             temp = isLocal ? Mat3x3::MultiplyVectorByMatrix3(Mat3x3::MultiplyVectorByMatrix3(Mat3x3::MultiplyVectorByMatrix3(
                 temp, Mat3x3::Rotation(Forward, zRad), true), Mat3x3::Rotation(Right, xRad), true), Mat3x3::Rotation(Up, yRad), true) :
                 Mat3x3::MultiplyVectorByMatrix3(Mat3x3::MultiplyVectorByMatrix3(Mat3x3::MultiplyVectorByMatrix3(
-                    temp, Mat3x3::Rotation(Mesh::GlobalForward(), zRad), true), Mat3x3::Rotation(Mesh::GlobalRight(), xRad), true), Mat3x3::Rotation(Mesh::GlobalUp(), yRad), true);
+                    temp, Mat3x3::Rotation(GlobalForward(), zRad), true), Mat3x3::Rotation(GlobalRight(), xRad), true), Mat3x3::Rotation(GlobalUp(), yRad), true);
 
             // Return vertex to offset point
             temp += Position;
@@ -134,7 +131,7 @@ public:
         float sceneWidth = (float)window->getSize().x, sceneHeight = (float)window->getSize().y;
         float aspectRatio = sceneHeight / sceneWidth;
 
-        vector<Triangle3D*> trisToDraw;
+        vector<Triangle3D> trisToDraw;
         for (Triangle3D& tri : tris) 
         {
             // Update the tri's normal
@@ -143,53 +140,62 @@ public:
             // Calculate triangle's viewed triangle points
             for (short i = 0; i < tri.Count(); i++)
             {
-                tri.pointsRelToCam[i] = Mat3x3::MultiplyVectorByMatrix3(
+                tri.viewed[i] = Mat3x3::MultiplyVectorByMatrix3(
                     Mat3x3::MultiplyVectorByMatrix3(
                         tri[i] - camera.position, Mat3x3::Rotation(camera.Right, camera.WorldPhi), true),
-                    Mat3x3::Rotation(Mesh::GlobalUp(), camera.WorldTheta), true);
+                    Mat3x3::Rotation(GlobalUp(), camera.WorldTheta), true);
             }
+            tri.SetCamNormal(Vector3D::Cross(tri.viewed[1] - tri.viewed[0], tri.viewed[2] - tri.viewed[0]).Normalized());
 
-            tri.SetCamNormal(Vector3D::Cross(tri.pointsRelToCam[1] - tri.pointsRelToCam[0], tri.pointsRelToCam[2] - tri.pointsRelToCam[0]).Normalized());
-
+            Triangle3D viewedTri(&tri.viewed[0], &tri.viewed[1], &tri.viewed[2]);
+            Triangle3D clipped[2];
+            int clippedTrisAmt = ClipTriAgainstPlane(Vector3D(0, 0, fNear), Vector3D(0, 0, 1), viewedTri, clipped[0], clipped[1]);
+            
             //if (tri.getX() == tris[0].getX()) cout << tri.pointsRelToCam[0].x << " " << tri.pointsRelToCam[0].y << " " << tri.pointsRelToCam[0].z << endl;
+
             // Only project & draw visible triangles (if angle between normal and any pt on the tri relative to camera is <= 90deg)
-            if (tri.CamNormal().Dot((tri.pointsRelToCam[0]).Normalized()) < 0.0)
+            if (tri.CamNormal().Dot((tri.viewed[0]).Normalized()) < 0.0)
             {
-                //cout << camera.position.x << endl;
                 float shade = Clamp(255 * (tri.CamNormal() * lightDir), 30, 225);
-                trisToDraw.push_back(&tri);
 
-                VertexArray displayTri(Triangles, 3);
-                for (int i = 0; i < tri.Count(); i++)
+                // Project the tri's clipped tris
+                for (int n = 0; n < clippedTrisAmt; n++)
                 {
-                    // Project triangles to 2D screen using Projection
-                    Vector3D projVector = Mat4x4::MultiplyVectorByMatrix4(tri.pointsRelToCam[i], Mat4x4::Projection(fNear, fFar, fov, aspectRatio), true);
-                    
-                    projVector.x += 1.0; // Move mesh to middle of screen
-                    projVector.y += 1.0;
-                    projVector.x *= 0.5 * sceneWidth; // scale it out from 1px
-                    projVector.y *= 0.5 * sceneHeight;
+                    VertexArray displayTri(Triangles, 3);
+                    for (int i = 0; i < 3; i++)
+                    {
+                        // Project triangles to 2D screen using Projection
+                        Vector3D projVector = Mat4x4::MultiplyVectorByMatrix4(clipped[n][i], Mat4x4::Projection(fNear, fFar, fov, aspectRatio), true);
 
-                    // Create vertex with vector position and shade color, append it to triangle VertexArrays
-                    Vertex projVector2D(Vector2f(projVector.x, projVector.y), Color(shade, shade, shade, 255));
-                    displayTri[i] = (projVector2D);
+                        projVector.x += 1.0; // Move mesh to middle of screen
+                        projVector.y += 1.0;
+                        projVector.x *= 0.5 * sceneWidth; // scale it out from 1px
+                        projVector.y *= 0.5 * sceneHeight;
+
+                        // Create vertex with vector position and shade color, append it to triangle VertexArrays
+                        Vertex projVector2D(Vector2f(projVector.x, projVector.y), Color(shade, shade, shade, 255));
+                        displayTri[i] = (projVector2D);
+                    }
+                    clipped[n].SetProjected(displayTri);
+                    clipped[n].setCenterZ((clipped[n][0].z + clipped[n][1].z + clipped[n][2].z) / 3.0f);
+                    trisToDraw.push_back(clipped[n]);
                 }
-                tri.SetProjected(displayTri);
-                tri.setCenterZ((tri.pointsRelToCam[0].z + tri.pointsRelToCam[1].z + tri.pointsRelToCam[2].z) / 3.0f);
             }
         }
         //DeleteMatrix(cameraMat, 4); // Delete the camera PointAt matrix array
         //DeleteMatrix(viewMat, 4); // Delete the Camera LookAt matrix array
 
         // Sort draw order, draw tris farthest to nearest
-        sort(trisToDraw.begin(), trisToDraw.end(), [](Triangle3D* t1, Triangle3D* t2)
+        sort(trisToDraw.begin(), trisToDraw.end(), [](Triangle3D& t1, Triangle3D& t2)
         {
-                return t1->getCenterZ() > t2->getCenterZ();
+                return t1.getCenterZ() > t2.getCenterZ();
         });
-
         // Draw the triangles
         for (auto tri : trisToDraw)
-            window->draw(tri->GetProjected());
+        {
+            //cout << tri.GetProjected()[0].position.x << endl;
+            window->draw(tri.GetProjected());
+        }
     }
 
     vector<Triangle3D> GetTris() { return tris; }
