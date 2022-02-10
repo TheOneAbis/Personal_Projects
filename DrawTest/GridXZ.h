@@ -12,7 +12,7 @@ private:
     const int gridSize = 10;
     const int numLines = 50;
 public:
-    // Creates a new Mesh Object from a Loaded OBJ file
+    // Creates a new Mesh object from a Loaded OBJ file
     GridXZ()
     {
         // Z-axis lines
