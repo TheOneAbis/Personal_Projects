@@ -4,121 +4,187 @@
 #include "Matrices.h"
 #include "GridXZ.h"
 #include <SFML\Window\Mouse.hpp>
+#include <thread>
+
+//Detecting memory leaks
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
 
 #define DarkGrey Color(65, 65, 65)
 
 
 float theta, phi, nearClip, farClip, fov;
 float camSpeed;
-Camera* mainCam;
+Camera mainCam(Vector3D(0, -3, 0), Vector3D(0, 0, 1));
 Vector2i currentM, previousM, mouseVel;
 
 Vector3D lightDir;
-Mesh* sword = new Mesh("Assets/SwordMesh.obj", Vector3D(0, 0, 5));
-GridXZ* grid = new GridXZ();
+Mesh sword1("Assets/SwordMesh.obj", Vector3D(0, 0, 5), &mainCam);
+Mesh sword2("Assets/SwordMesh.obj", Vector3D(5, 0, 0), &mainCam);
+Mesh sword3("Assets/SwordMesh.obj", Vector3D(0, 0, -5), &mainCam);
+Mesh sword4("Assets/SwordMesh.obj", Vector3D(-5, 0, 0), &mainCam);
+vector<Mesh*> swords;
+GridXZ grid;
+
 
 // X-Z Plane Grid
 std::vector<VertexArray> xzGrid;
 
+void viewThread(RenderWindow* window)
+{
+    Clock time;
+    float dt;
+    while (window->isOpen())
+    {
+        dt = time.restart().asSeconds();
+        //cout << (int)(1/dt) << " FPS" << endl;
+        for (Mesh* m : swords)
+            m->UpdateViewSpace();
+    }
+}
+
 void drawThread(RenderWindow* window)
 {
-    window->clear(DarkGrey);
+    window->setActive(true);
 
-    // draw in here
-    grid->Draw(nearClip, farClip, fov, *mainCam, window);
-    //cout << grid->GetLines()[0][0].x << endl;
-    sword->Draw(nearClip, farClip, fov, *mainCam, lightDir, window);
-    // End current frame
-    window->display();
+    Clock time;
+    float dt;
+    while (window->isOpen())
+    {
+        dt = time.restart().asSeconds();
+        //cout << dt << " MS per Frame" << endl;
+        //cout << (int)(1/dt) << " FPS" << endl;
+
+        sort(swords.begin(), swords.end(), [](Mesh* m1, Mesh* m2)
+            {
+                return (m1->GetPosition() - mainCam.position).SqrLength() > (m2->GetPosition() - mainCam.position).SqrLength();
+            });
+        
+        window->clear(DarkGrey);
+        
+        grid.Draw(window);
+        
+        for (Mesh* m : swords)
+        {
+            m->UpdateViewSpace();
+            m->Draw(window);
+        }
+
+        window->display();
+    }
 }
+
 
 void initialize()
 {
     theta = 0;
     phi = 0;
-    camSpeed = 5;
+    camSpeed = 15;
 
     currentM = Mouse::getPosition();
     previousM = Mouse::getPosition();
 
-    nearClip = 0.1; // Near Camera Clipping Plane Z
-    farClip = 1000.0; // Far Camera Clipping Plane Z (View distance)
-    fov = 90.0; // Field of View Angle (Deg)
-    mainCam = new Camera(Vector3D(0, -3, 0), Vector3D(0, -PI/6, 1));
-    lightDir = Vector3D(0, 0, -1);
+    nearClip = 0.1f; // Near Camera Clipping Plane Z
+    farClip = 1000.0f; // Far Camera Clipping Plane Z (View distance)
+    fov = 90.0f; // Field of View Angle (Deg)
+
+    lightDir = Vector3D(0, -1, -1).Normalized();
 
     for (int i = -50; i < 50; i++)
-    {
         VertexArray gridLine(Lines, 2);
-    }
+
+    swords.push_back(&sword1);
+    swords.push_back(&sword2);
+    swords.push_back(&sword3);
+    swords.push_back(&sword4);
 }
 
 int main()
 {
     RenderWindow window(VideoMode(800, 600), "My Graphics Engine");
     window.setVerticalSyncEnabled(true);
-    WINDOWINFO wInfo;
+    //WINDOWINFO wInfo;
 
     // Deactivate OpenGL context for multithreaded drawing
     window.setActive(false);
 
     Mouse::setPosition(Vector2i(window.getSize().x / 2, window.getSize().y / 2), window);
+
+    Clock time;
+    float dt;
     // Initialize variables
     initialize();
 
-    Clock clock;
-    float dt;
-
-    // Launch Draw thread
+    // Launch Threads
     // NOTE: MAIN THREAD LOOPS MUCH FASTER THAN DRAW THREAD
-    //Thread thread(&drawThread, &window);
-    //thread.launch();
+    thread drawthread(&drawThread, &window);
+    //thread viewthread(&viewThread, &window);
 
-    sword->Rotate(0, PI/2, 0, true);
+    sword1.Rotate(0, PI / 2.0f, 0, true);
 
-    // Main Thread Update Loop
+
+
+    //              ----     MAIN THREAD UPDATE    ----
+
     while (window.isOpen())
     {
+        dt = time.restart().asSeconds();
+        cout << (int)(1 / dt) << " FPS" << endl;
+        //cout << dt << endl;
+
         currentM = Mouse::getPosition();
         mouseVel = currentM - previousM;
 
-        dt = clock.restart().asSeconds();
-
-        Vector3D forwardMovt = Vector3D(mainCam->Forward.x, 0, mainCam->Forward.z).Normalized() * (dt * camSpeed);
-        Vector3D rightMovt = mainCam->Right * (dt * camSpeed);
+        Vector3D forwardMovt = Vector3D(mainCam.Forward.x, 0, mainCam.Forward.z).Normalized() * (dt * camSpeed);
+        Vector3D rightMovt = mainCam.Right * (dt * camSpeed);
         Vector3D upMovt = GlobalUp() * (dt * camSpeed);
-
-        //cout << mainCam->position.x << " " << mainCam->position.y << " " << mainCam->position.z << endl;
 
         // Movement Inputs
         if (Keyboard::isKeyPressed(Keyboard::W))
-            mainCam->position += forwardMovt;
+            mainCam.position += forwardMovt;
         if (Keyboard::isKeyPressed(Keyboard::A))
-            mainCam->position -= rightMovt;
+            mainCam.position -= rightMovt;
         if (Keyboard::isKeyPressed(Keyboard::S))
-            mainCam->position -= forwardMovt;
+            mainCam.position -= forwardMovt;
         if (Keyboard::isKeyPressed(Keyboard::D))
-            mainCam->position += rightMovt;
+            mainCam.position += rightMovt;
         if (Keyboard::isKeyPressed(Keyboard::Space))
-            mainCam->position -= upMovt;
+            mainCam.position -= upMovt;
         if (Keyboard::isKeyPressed(Keyboard::LControl))
-            mainCam->position += upMovt;
+            mainCam.position += upMovt;
         if (Keyboard::isKeyPressed(Keyboard::LShift))
-            camSpeed = 15;
-        else camSpeed = 5;
-
+            camSpeed = 25;
+        else camSpeed = 15;
+        
         // Mouse Look Input
-        mainCam->RotateX(-dt * mouseVel.y);
-        mainCam->RotateY(-dt * mouseVel.x);
+        mainCam.RotateX((float)-mouseVel.y / 100);
+        mainCam.RotateY((float)-mouseVel.x / 100);
 
+        // Keep look direction from going upside down
+        if (mainCam.Forward * mainCam.forwardOnXZ <= 0)
+        {
+            mainCam.Forward = Vector3D(mainCam.forwardOnXZ.x * 0.01f, mainCam.Forward.y / abs(mainCam.Forward.y), mainCam.forwardOnXZ.z * 0.01f).Normalized();
+            mainCam.Up = Vector3D::Cross(mainCam.Forward, mainCam.Right);
+        }
+        
         // Set camera's theta and elevation angles
-        mainCam->WorldPhi = mainCam->Forward.y > 0 ? acos(mainCam->Forward.Dot(Vector3D(mainCam->Forward.x, 0, mainCam->Forward.z).Normalized())) :
-            -acos(mainCam->Forward.Dot(Vector3D(mainCam->Forward.x, 0, mainCam->Forward.z).Normalized()));
+        mainCam.WorldPhi = mainCam.Forward.y > 0 ? acos(mainCam.Forward.Dot(mainCam.forwardOnXZ.Normalized())) :
+            -acos(mainCam.Forward.Dot(mainCam.forwardOnXZ.Normalized()));
 
-        mainCam->WorldTheta = mainCam->Forward.x > 0 ? acos(Vector3D(mainCam->Forward.x, 0, mainCam->Forward.z).Normalized().Dot(GlobalForward())) :
-            -acos(Vector3D(mainCam->Forward.x, 0, mainCam->Forward.z).Normalized().Dot(GlobalForward()));
+        mainCam.WorldTheta = mainCam.Forward.x > 0 ? acos(mainCam.forwardOnXZ.Normalized().Dot(GlobalForward())) :
+            -acos(mainCam.forwardOnXZ.Normalized().Dot(GlobalForward()));
 
-        sword->Rotate(0, dt, 0, false);
+        sword1.Rotate(0, dt, 0, false);
+        sword2.Rotate(0, dt * 2, 0, false);
+        sword3.Rotate(0, dt * 3, 0, false);
+        sword4.Rotate(0, dt * 4, 0, false);
+
+        // Update the location of all tris on the screen for drawing on other threa
+        //sword3.UpdateDisplay(nearClip, farClip, fov, lightDir, &window);
+        for (Mesh* m : swords)
+            m->UpdateDisplay(nearClip, farClip, fov, lightDir, &window);
+        grid.UpdateDisplay(nearClip, farClip, fov, mainCam, &window);
 
         // check all the window's events that were triggered since the last iteration of the loop
         Event event;
@@ -129,10 +195,11 @@ int main()
                 window.close();
         }
 
-        // DRAW
-        drawThread(&window);
-
+        //drawThread(&window);
+        //viewThread(&window);
         previousM = currentM;
     }
+
+    _CrtDumpMemoryLeaks();
     return 0;
 }

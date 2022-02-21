@@ -90,6 +90,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>Default</LanguageStandard>
+      <LanguageStandard_C>Default</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -143,7 +145,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="GraphicsEngine.cpp" />
+    <ClCompile Include="GridXZ.cpp" />
+    <ClCompile Include="Line3D.cpp" />
+    <ClCompile Include="Matrices.cpp" />
+    <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="Triangle3D.cpp" />
     <ClCompile Include="Triangle3D.h" />
+    <ClCompile Include="Utilities.cpp" />
+    <ClCompile Include="Vector3D.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
