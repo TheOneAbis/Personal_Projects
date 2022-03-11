@@ -1,6 +1,4 @@
-#pragma once
 #include "Mesh.h"
-
 
 Vector3D Mesh::GetPosition() { return Position; }
 
@@ -31,6 +29,18 @@ Mesh::Mesh(string objFile, const Vector3D& offset, Camera* cam)
         Vector3D temp = (this->Position + this->Pivot);
         vec += temp;
     }
+}
+
+// Creates new mesh (to be used by child classes)
+Mesh::Mesh(const Vector3D& offset, Camera* cam)
+{
+    this->cam = cam;
+    this->Pivot = Vector3D(0, 0, 0);
+    this->Position = offset;
+
+    Right = Vector3D(1, 0, 0);
+    Up = Vector3D(0, 1, 0);
+    Forward = Vector3D(0, 0, 1);
 }
 
 // Loads the OBJ file into the mesh object
@@ -105,29 +115,25 @@ void Mesh::Rotate(float xRad, float yRad, float zRad, bool isLocal)
         temp += Position;
         vec = temp;
     }
-    //UpdateViewSpace();
 }
 
 void Mesh::UpdateViewSpace()
 {
-    //float** cameraMat = Mat4x4::PointAt(camera.position, camera.Target, camera.GetUp());
-    //float** viewMat = Mat4x4::SimpleInverse(cameraMat);
+    float** cameraMat = Mat4x4::PointAt(cam->position, cam->Target, cam->GetUp());
+    float** viewMat = Mat4x4::SimpleInverse(cameraMat);
+
     for (Triangle3D& tri : tris)
     {
         tri.SetNormal(Vector3D::Cross(tri[1] - tri[0], tri[2] - tri[0]).Normalized());
 
         // Calculate triangle's viewed triangle points
-        for (short i = 0; i < tri.Count(); i++)
-        {
-            tri.viewed.p[i] = Mat3x3::MultiplyVectorByMatrix3(
-                Mat3x3::MultiplyVectorByMatrix3(
-                    tri[i] - cam->position, Mat3x3::Rotation(cam->Right, cam->WorldPhi), true),
-                Mat3x3::Rotation(GlobalUp(), cam->WorldTheta), true);
-        }
+        for (int i = 0; i < tri.Count(); i++)
+            tri.viewed.p[i] = Mat4x4::MultiplyVectorByMatrix4(tri[i], viewMat, false);
+
         tri.SetCamNormal(Vector3D::Cross(tri.viewed.p[1] - tri.viewed.p[0], tri.viewed.p[2] - tri.viewed.p[0]).Normalized());
     }
-    //DeleteMatrix(cameraMat, 4); // Delete the camera PointAt matrix array
-    //DeleteMatrix(viewMat, 4); // Delete the Camera LookAt matrix array
+    DeleteMatrix(cameraMat, 4); // Delete the camera PointAt matrix array
+    DeleteMatrix(viewMat, 4); // Delete the Camera LookAt matrix array
 }
 
 // Project the 3D mesh onto the screen 
@@ -166,8 +172,8 @@ void Mesh::UpdateDisplay(float fNear, float fFar, float fov, Vector3D& lightDir,
                     projVector.y *= 0.5f * sceneHeight;
 
                     // Create vertex with vector position and shade color, append it to triangle VertexArrays
-                    Vertex projVector2D(Vector2f(projVector.x, projVector.y), Color(shade, shade, shade, 255));
-                    displayTri[i] = (projVector2D);
+                    Vertex projVector2D(Vector2f(projVector.x, projVector.y), Color(shade, 0, 0, 255));
+                    displayTri[i] = projVector2D;
                 }
                 clipped[n].projected = displayTri;
                 newTrisToDraw.push_back(clipped[n]);
@@ -191,6 +197,40 @@ void Mesh::Draw(RenderWindow* window)
     // Draw the triangles
     for (SimpleTri3D& tri : trisToDraw)
     {
+        SimpleTri3D clipped[2];
+        queue<SimpleTri3D> triQueue;
+        triQueue.push(tri);
+        int nNewTris = 1;
+        /*
+        for (int i = 0; i < 4; i++)
+        {
+            while (triQueue.size() > 0)
+            {
+                SimpleTri3D triToClip = triQueue.front();
+                triQueue.pop();
+
+                switch (i)
+                {
+                case 0: 
+                    nNewTris = ClipTriAgainstPlane(Vector3D(0, 0, 0), Vector3D(0, 1, 0), tri, clipped[0], clipped[1]);
+                    break;
+                case 1: 
+                    nNewTris = ClipTriAgainstPlane(Vector3D(0, (float)window->getSize().y - 1, 0), Vector3D(0, -1, 0), tri, clipped[0], clipped[1]);
+                    break;
+                case 2: 
+                    nNewTris = ClipTriAgainstPlane(Vector3D(0, 0, 0), Vector3D(1, 0, 0), tri, clipped[0], clipped[1]);
+                    break;
+                case 3: 
+                    nNewTris = ClipTriAgainstPlane(Vector3D((float)window->getSize().x - 1, 0, 0), Vector3D(-1, 0, 0), tri, clipped[0], clipped[1]);
+                    break;
+                }
+
+                for (int j = 0; j < nNewTris; j++)
+                    triQueue.push(clipped[j]);
+            }
+        }
+        */
+
         window->draw(tri.GetProjected());
     }
 }

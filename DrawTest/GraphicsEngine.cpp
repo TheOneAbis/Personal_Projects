@@ -1,9 +1,12 @@
 //NOTE: SFML put y=0 at the top, so when y increments everything goes down
+// This is a WIP build, so expect bugs
 
 #include "Mesh.h"
+#include "Torus.h"
 #include "Matrices.h"
 #include "GridXZ.h"
-#include <SFML\Window\Mouse.hpp>
+#include <SFML\Window.hpp>
+#include <SFML\Graphics.hpp>
 #include <thread>
 
 //Detecting memory leaks
@@ -20,13 +23,20 @@ Camera mainCam(Vector3D(0, -3, 0), Vector3D(0, 0, 1));
 Vector2i currentM, previousM, mouseVel;
 
 Vector3D lightDir;
-Mesh sword1("Assets/SwordMesh.obj", Vector3D(0, 0, 5), &mainCam);
-Mesh sword2("Assets/SwordMesh.obj", Vector3D(5, 0, 0), &mainCam);
-Mesh sword3("Assets/SwordMesh.obj", Vector3D(0, 0, -5), &mainCam);
-Mesh sword4("Assets/SwordMesh.obj", Vector3D(-5, 0, 0), &mainCam);
-vector<Mesh*> swords;
+Mesh sword1("Assets/SwordMesh.obj", Vector3D(0, 0, 8), &mainCam);
+Mesh sword2("Assets/SwordMesh.obj", Vector3D(8, 0, 0), &mainCam);
+Mesh sword3("Assets/SwordMesh.obj", Vector3D(0, 0, -8), &mainCam);
+Mesh sword4("Assets/SwordMesh.obj", Vector3D(-8, 0, 0), &mainCam);
+Torus ringSmall(2, 0.3f, 10, 10, Vector3D(0, 0, 0), &mainCam);
+Torus ringMed(4, 0.3f, 15, 10, Vector3D(0, 0, 0), &mainCam);
+Torus ringLarge(6, 0.3f, 21, 10, Vector3D(0, 0, 0), &mainCam);
+
+vector<Mesh*> meshes;
 GridXZ grid;
 
+// Text font
+Font font;
+Text instructions;
 
 // X-Z Plane Grid
 std::vector<VertexArray> xzGrid;
@@ -39,7 +49,7 @@ void viewThread(RenderWindow* window)
     {
         dt = time.restart().asSeconds();
         //cout << (int)(1/dt) << " FPS" << endl;
-        for (Mesh* m : swords)
+        for (Mesh* m : meshes)
             m->UpdateViewSpace();
     }
 }
@@ -53,10 +63,11 @@ void drawThread(RenderWindow* window)
     while (window->isOpen())
     {
         dt = time.restart().asSeconds();
+
         //cout << dt << " MS per Frame" << endl;
         //cout << (int)(1/dt) << " FPS" << endl;
 
-        sort(swords.begin(), swords.end(), [](Mesh* m1, Mesh* m2)
+        sort(meshes.begin(), meshes.end(), [](Mesh* m1, Mesh* m2)
             {
                 return (m1->GetPosition() - mainCam.position).SqrLength() > (m2->GetPosition() - mainCam.position).SqrLength();
             });
@@ -65,11 +76,12 @@ void drawThread(RenderWindow* window)
         
         grid.Draw(window);
         
-        for (Mesh* m : swords)
+        for (Mesh* m : meshes)
         {
-            m->UpdateViewSpace();
+            //m->UpdateViewSpace();
             m->Draw(window);
         }
+        window->draw(instructions);
 
         window->display();
     }
@@ -78,6 +90,16 @@ void drawThread(RenderWindow* window)
 
 void initialize()
 {
+    if (!font.loadFromFile("Assets/arial.ttf"))
+        throw("Could not open font.");
+
+    //Display how to Interact w/ application
+    instructions.setFont(font);
+    instructions.setString("WASD keys to move around \nMove mouse to look around");
+    instructions.setCharacterSize(20);
+    instructions.setFillColor(Color::White);
+    instructions.setPosition(0, 0);
+
     theta = 0;
     phi = 0;
     camSpeed = 15;
@@ -94,11 +116,15 @@ void initialize()
     for (int i = -50; i < 50; i++)
         VertexArray gridLine(Lines, 2);
 
-    swords.push_back(&sword1);
-    swords.push_back(&sword2);
-    swords.push_back(&sword3);
-    swords.push_back(&sword4);
+    meshes.push_back(&sword1);
+    meshes.push_back(&sword2);
+    meshes.push_back(&sword3);
+    meshes.push_back(&sword4);
+    meshes.push_back(&ringSmall);
+    meshes.push_back(&ringMed);
+    meshes.push_back(&ringLarge);
 }
+
 
 int main()
 {
@@ -117,48 +143,47 @@ int main()
     initialize();
 
     // Launch Threads
-    // NOTE: MAIN THREAD LOOPS MUCH FASTER THAN DRAW THREAD
     thread drawthread(&drawThread, &window);
     //thread viewthread(&viewThread, &window);
 
-    sword1.Rotate(0, PI / 2.0f, 0, true);
+    ringLarge.Rotate(PI / 2.0f, 0, 0, false);
 
-
+    Vector3D forwardMovt, rightMovt, upMovt;
 
     //              ----     MAIN THREAD UPDATE    ----
 
     while (window.isOpen())
     {
         dt = time.restart().asSeconds();
-        cout << (int)(1 / dt) << " FPS" << endl;
+        //cout << (int)(1 / dt) << " FPS" << endl;
         //cout << dt << endl;
 
         currentM = Mouse::getPosition();
         mouseVel = currentM - previousM;
 
-        Vector3D forwardMovt = Vector3D(mainCam.Forward.x, 0, mainCam.Forward.z).Normalized() * (dt * camSpeed);
-        Vector3D rightMovt = mainCam.Right * (dt * camSpeed);
-        Vector3D upMovt = GlobalUp() * (dt * camSpeed);
+        forwardMovt = Vector3D(mainCam.Forward.x, 0, mainCam.Forward.z).Normalized() * (dt * camSpeed);
+        rightMovt = mainCam.Right * (dt * camSpeed);
+        upMovt = GlobalUp() * (dt * camSpeed);
 
         // Movement Inputs
         if (Keyboard::isKeyPressed(Keyboard::W))
-            mainCam.position += forwardMovt;
+            mainCam.SetPosition(mainCam.GetPosition() + forwardMovt);
         if (Keyboard::isKeyPressed(Keyboard::A))
-            mainCam.position -= rightMovt;
+            mainCam.SetPosition(mainCam.GetPosition() - rightMovt);
         if (Keyboard::isKeyPressed(Keyboard::S))
-            mainCam.position -= forwardMovt;
+            mainCam.SetPosition(mainCam.GetPosition() - forwardMovt);
         if (Keyboard::isKeyPressed(Keyboard::D))
-            mainCam.position += rightMovt;
+            mainCam.SetPosition(mainCam.GetPosition() + rightMovt);
         if (Keyboard::isKeyPressed(Keyboard::Space))
-            mainCam.position -= upMovt;
+            mainCam.SetPosition(mainCam.GetPosition() - upMovt);
         if (Keyboard::isKeyPressed(Keyboard::LControl))
-            mainCam.position += upMovt;
+            mainCam.SetPosition(mainCam.GetPosition() + upMovt);
         if (Keyboard::isKeyPressed(Keyboard::LShift))
             camSpeed = 25;
-        else camSpeed = 15;
+        else camSpeed = 5;
         
         // Mouse Look Input
-        mainCam.RotateX((float)-mouseVel.y / 100);
+        mainCam.RotateX((float)mouseVel.y / 100);
         mainCam.RotateY((float)-mouseVel.x / 100);
 
         // Keep look direction from going upside down
@@ -168,22 +193,26 @@ int main()
             mainCam.Up = Vector3D::Cross(mainCam.Forward, mainCam.Right);
         }
         
-        // Set camera's theta and elevation angles
-        mainCam.WorldPhi = mainCam.Forward.y > 0 ? acos(mainCam.Forward.Dot(mainCam.forwardOnXZ.Normalized())) :
-            -acos(mainCam.Forward.Dot(mainCam.forwardOnXZ.Normalized()));
-
-        mainCam.WorldTheta = mainCam.Forward.x > 0 ? acos(mainCam.forwardOnXZ.Normalized().Dot(GlobalForward())) :
-            -acos(mainCam.forwardOnXZ.Normalized().Dot(GlobalForward()));
-
         sword1.Rotate(0, dt, 0, false);
         sword2.Rotate(0, dt * 2, 0, false);
         sword3.Rotate(0, dt * 3, 0, false);
         sword4.Rotate(0, dt * 4, 0, false);
 
+        ringSmall.Rotate(dt, 0, 0, false);
+        ringSmall.Rotate(0, -dt * 0.5f, 0, true);
+
+        ringMed.Rotate(0, 0, dt / 2, false);
+        ringMed.Rotate(0, -dt, 0, true);
+
+        ringLarge.Rotate(0, dt / 3, 0, false);
+        ringLarge.Rotate(0, -dt, 0, true);
+
         // Update the location of all tris on the screen for drawing on other threa
-        //sword3.UpdateDisplay(nearClip, farClip, fov, lightDir, &window);
-        for (Mesh* m : swords)
+        for (Mesh* m : meshes)
+        {
+            m->UpdateViewSpace();
             m->UpdateDisplay(nearClip, farClip, fov, lightDir, &window);
+        }
         grid.UpdateDisplay(nearClip, farClip, fov, mainCam, &window);
 
         // check all the window's events that were triggered since the last iteration of the loop
@@ -196,10 +225,9 @@ int main()
         }
 
         //drawThread(&window);
-        //viewThread(&window);
         previousM = currentM;
     }
-
+    Mesh sword("Assets/SwordMesh.obj", Vector3D(0, 0, 0), &mainCam);
     _CrtDumpMemoryLeaks();
     return 0;
 }

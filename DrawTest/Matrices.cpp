@@ -1,4 +1,3 @@
-#pragma once
 #include "Matrices.h"
 
 
@@ -122,14 +121,14 @@ float** Mat4x4::Projection(float fNear, float fFar, float fov, float aspectRatio
     return m;
 }
 
-// Point At Matrix (Point camera at object)
+// Point At Matrix (Use to have an object point toward a target)
 float** Mat4x4::PointAt(Vector3D& pos, Vector3D& target, Vector3D& up)
 {
     // New Forward direction
     Vector3D newForward = (target - pos).Normalized();
 
     // New Up Direction
-    Vector3D a = newForward * (up * newForward);
+    Vector3D a = newForward * up.Dot(newForward);
     Vector3D newUp = (up - a).Normalized();
 
     // New Right Direction
@@ -148,13 +147,13 @@ float** Mat4x4::PointAt(Vector3D& pos, Vector3D& target, Vector3D& up)
 float** Mat4x4::SimpleInverse(float** original)
 {
     float** m = MakeNewArr();
-    m[0][0] = original[0][0]; m[0][1] = original[1][0]; m[0][2] = original[2][0]; m[0][3] = 0;
-    m[1][0] = original[0][1]; m[1][1] = original[1][1]; m[1][2] = original[2][1]; m[1][3] = 0;
-    m[2][0] = original[0][2]; m[2][1] = original[1][2]; m[2][2] = original[2][2]; m[2][3] = 0;
+    m[0][0] = original[0][0]; m[0][1] = original[1][0]; m[0][2] = original[2][0]; m[0][3] = 0.0f;
+    m[1][0] = original[0][1]; m[1][1] = original[1][1]; m[1][2] = original[2][1]; m[1][3] = 0.0f;
+    m[2][0] = original[0][2]; m[2][1] = original[1][2]; m[2][2] = original[2][2]; m[2][3] = 0.0f;
     m[3][0] = -(original[3][0] * m[0][0] + original[3][1] * m[1][0] + original[3][2] * m[2][0]);
     m[3][1] = -(original[3][0] * m[0][1] + original[3][1] * m[1][1] + original[3][2] * m[2][1]);
     m[3][2] = -(original[3][0] * m[0][2] + original[3][1] * m[1][2] + original[3][2] * m[2][2]);
-    m[3][3] = 1;
+    m[3][3] = 1.0f;
 
     return m;
 }

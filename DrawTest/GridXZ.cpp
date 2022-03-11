@@ -1,4 +1,3 @@
-#pragma once
 #include "GridXZ.h"
 
 
@@ -21,18 +20,17 @@ void GridXZ::UpdateDisplay(float fNear, float fFar, float fov, Camera& camera, R
     float sceneWidth = (float)window->getSize().x, sceneHeight = (float)window->getSize().y;
     float aspectRatio = sceneHeight / sceneWidth;
 
+    float** cameraMat = Mat4x4::PointAt(camera.position, camera.Target, camera.GetUp());
+    float** viewMat = Mat4x4::SimpleInverse(cameraMat);
+
     newClippedLines.clear();
 
     for (Line3D& line : lines)
     {
         VertexArray displayLine(Lines, 2);
+
         for (int i = 0; i < line.Count(); i++)
-        {
-            line.viewed[i] = Mat3x3::MultiplyVectorByMatrix3(
-                Mat3x3::MultiplyVectorByMatrix3(
-                    line[i] - camera.position, Mat3x3::Rotation(camera.Right, camera.WorldPhi), true),
-                Mat3x3::Rotation(GlobalUp(), camera.WorldTheta), true);
-        }
+            line.viewed[i] = Mat4x4::MultiplyVectorByMatrix4(line[i], viewMat, false);
 
         Line3D viewed(line.viewed[0], line.viewed[1]);
         Line3D clipped = ClipLineAgainstPlane(Vector3D(0, 0, fNear), Vector3D(0, 0, 1), viewed);
@@ -55,6 +53,9 @@ void GridXZ::UpdateDisplay(float fNear, float fFar, float fov, Camera& camera, R
         clipped.SetProjected(displayLine);
         newClippedLines.push_back(clipped);
     }
+    DeleteMatrix(cameraMat, 4);
+    DeleteMatrix(viewMat, 4);
+
     clippedLines = newClippedLines;
 }
 

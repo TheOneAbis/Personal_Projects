@@ -6,29 +6,36 @@
 
 #include <fstream>
 #include <strstream>
+#include <queue>
 
 
 class Mesh
 {
-private:
-    std::vector<Triangle3D> tris;
+protected:
     std::vector<Vector3D> vertices;
-    Vector3D Pivot, Position, Right, Up, Forward;
+    std::vector<Triangle3D> tris;
+    Vector3D Pivot, Position;
+
+private:
+    
+    Vector3D Right, Up, Forward;
     Camera* cam;
 
     std::vector<SimpleTri3D> trisToDraw;
 
+    // Loads the OBJ file into the mesh object
+    bool LoadOBJ(string fileName);
+
 public:
+
+    // Creates a new Mesh Object from a Loaded OBJ file
+    Mesh(string objFile, const Vector3D& offset, Camera* cam);
+
+    Mesh(const Vector3D& offset, Camera* cam);
 
     Vector3D GetPosition();
 
     void Move(float x, float y, float z);
-
-    // Creates a new Mesh Object from a Loaded OBJ file
-    Mesh(string objFile, const Vector3D& offset, Camera* cam);
-    
-    // Loads the OBJ file into the mesh object
-    bool LoadOBJ(string fileName);
 
     // Rotate the mesh by z, x, then y, using either local or global coords
     void Rotate(float xRad, float yRad, float zRad, bool isLocal);
