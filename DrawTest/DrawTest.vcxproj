@@ -24,6 +24,7 @@
     <ProjectGuid>{09446713-1d97-4836-8bd6-1e91830091a6}</ProjectGuid>
     <RootNamespace>DrawTest</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>3DGraphicsEngineC++</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
