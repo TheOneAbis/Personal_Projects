@@ -42,9 +42,12 @@ public:
 
     void UpdateViewSpace();
 
+    // Add this mesh's triangles to the tri buffer
+    void FillBuffer(vector<Triangle3D*>& buffer);
+
     // Project the 3D mesh onto the screen 
     // (Computes the viewed version of it for the camera, then projects)
-    void UpdateDisplay(float fNear, float fFar, float fov, Vector3D& lightDir, RenderWindow* window);
+    void UpdateDisplay(float fNear, float fFar, float fov, Vector3D& lightDir, RenderWindow* window, vector<SimpleTri3D>& triBuffer);
 
     void Draw(RenderWindow* window);
 

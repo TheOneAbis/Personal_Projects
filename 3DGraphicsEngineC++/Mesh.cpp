@@ -136,9 +136,15 @@ void Mesh::UpdateViewSpace()
     DeleteMatrix(viewMat, 4); // Delete the Camera LookAt matrix array
 }
 
+void Mesh::FillBuffer(vector<Triangle3D*>& buffer)
+{
+    for (Triangle3D& tri : this->tris)
+        buffer.push_back(&tri);
+}
+
 // Project the 3D mesh onto the screen 
-// (Computes the viewed version of it for the camera, then projects)
-void Mesh::UpdateDisplay(float fNear, float fFar, float fov, Vector3D& lightDir, RenderWindow* window)
+// (Projection comes after translating from world to view space)
+void Mesh::UpdateDisplay(float fNear, float fFar, float fov, Vector3D& lightDir, RenderWindow* window, vector<SimpleTri3D>& triBuffer)
 {
     float sceneWidth = (float)window->getSize().x, sceneHeight = (float)window->getSize().y;
     float aspectRatio = sceneHeight / sceneWidth;
@@ -177,17 +183,10 @@ void Mesh::UpdateDisplay(float fNear, float fFar, float fov, Vector3D& lightDir,
                 }
                 clipped[n].projected = displayTri;
                 newTrisToDraw.push_back(clipped[n]);
+                triBuffer.push_back(clipped[n]);
             }
         }
     }
-
-    // Sort draw order, draw tris farthest to nearest
-    sort(newTrisToDraw.begin(), newTrisToDraw.end(), [](SimpleTri3D& t1, SimpleTri3D& t2)
-        {
-            float t1Z = (t1.p[0].z + t1.p[1].z + t1.p[2].z) / 3.0f;
-            float t2Z = (t2.p[0].z + t2.p[1].z + t2.p[2].z) / 3.0f;
-            return t1Z > t2Z;
-        });
 
     trisToDraw = newTrisToDraw;
 }

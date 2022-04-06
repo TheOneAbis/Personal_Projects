@@ -50,7 +50,7 @@ int ClipTriAgainstPlane(Vector3D planeP, Vector3D planeN, SimpleTri3D& originalT
 		newTri1.p[2] = Vector3D::IntersectPlane(planeP, planeN, inFrontPoints[0], behindPoints[1]);
 		return 1;
 	}
-	// CLip outside, return the 2 tris that make up the original tri's base that's still inside
+	// Clip outside, return the 2 tris that make up the original tri's base that's still inside
 	if (numPointsInFront == 2 && numPointsBehind == 1)
 	{
 		newTri1.p[0] = inFrontPoints[0];

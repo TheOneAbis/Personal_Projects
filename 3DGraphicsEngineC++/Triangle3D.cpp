@@ -1,7 +1,7 @@
 #include "Triangle3D.h"
 
 
-VertexArray SimpleTri3D::GetProjected() { return projected; }
+VertexArray SimpleTri3D::GetProjected() { return this->projected; }
 
 // Creates a new Triangle with 3 points p1, p2, and p3, defined in a CLOCKWISE fashion
 Triangle3D::Triangle3D(Vector3D* p1, Vector3D* p2, Vector3D* p3)
