@@ -1,7 +1,7 @@
 #include "Torus.h"
 
-Torus::Torus(float radius, float ringRadius, int radialDivisions, int ringDivisions, const Vector3D& offset, Camera* cam)
-	: Mesh(offset, cam)
+Torus::Torus(float radius, float ringRadius, int radialDivisions, int ringDivisions, const Vector3D& offset)
+	: Mesh(offset)
 {
 	Vector3D newVMid;
 

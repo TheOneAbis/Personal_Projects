@@ -5,5 +5,5 @@ class Torus : public Mesh
 {
 public:
 
-	Torus(float radius, float ringRadius, int radialDivisions, int ringDivisions, const Vector3D& offset, Camera* cam);
+	Torus(float radius, float ringRadius, int radialDivisions, int ringDivisions, const Vector3D& offset);
 };

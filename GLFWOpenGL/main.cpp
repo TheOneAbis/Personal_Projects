@@ -11,20 +11,9 @@
 const GLuint WIDTH = 800, HEIGHT = 600;
 // Shaders
 // vertexShaderSource handles positioning and location of triangle
-const GLchar* vertexShaderSource = "#version 330 core\n"
-"layout (location = 0) in vec3 position;\n"
-"void main()\n"
-"{\n"
-"gl_Position = vec4(position.x, position.y, position.z, 1.0);\n"
-"}\0";
 
 // Fragment shader source handles color and texture of triangle
-const GLchar* fragmentShaderSource = "#version 330 core\n"
-"out vec4 color;\n"
-"void main()\n"
-"{\n"
-"color = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
-"}\n\0";
+
 
 int main()
 {
@@ -94,6 +83,51 @@ int main()
         glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
     }
+    // Link shaders
+    // a Program object is an object by which shaders can be attached.
+    GLuint shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram); // link program w/ newly attached shaders
+    // Check for linking errors
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    if (!success)
+    {
+        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::PROGRAM::LINKED_FAILED\n" << infoLog << std::endl;
+    }
+    // Shaders have been successfully linked and are part of the shader program, so can delete them here
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    // Set up vertex data (and buffer(s)) and attribute pointers
+    // The values of the screen coords range between -1 and 1 by default is not explicitely set
+    GLfloat vertices[] =
+    {
+        -0.5f, -0.5f, 0.0f, // Left
+         0.5f, -0.5f, 0.0f,  // Right
+         0.0f, 0.5f, 0.0f    // Top
+    }; // creates a triangle
+    GLuint VBO, VAO; // Vertex Buffer Object, Vertex Array Object
+    glGenVertexArrays(1, &VAO); // these 2 functions generate the vertex array and buffers in VAO and VBO
+    glGenBuffers(1, &VBO);
+    // Bind the Vertex Array Object first, then bind and set vertex buffer(s) and attribute pointer(s).
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    // Create and enable the vertex pointer
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // Note that this is allowed, the call to glVertexAttribPointer 
+    // registered VBO as the currently bound vertex buffer object so 
+    // afterwards we can safely unbind
+
+    glBindVertexArray(0);
+    // Unbind VAO (it's always a good thing to unbind any buffer/array 
+    // to prevent strange bugs)
+    // (Passing in 0 unbinds)
 
     // GAME LOOP
     while (!glfwWindowShouldClose(window))
@@ -102,12 +136,22 @@ int main()
         glfwPollEvents();
 
         // Render and clear the color buffer
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+
+        // Draw Stuff HERE
+        glUseProgram(shaderProgram); // indicate what shader program we are using to draw
+        glBindVertexArray(VAO); // bind vertex array (our triangle)
+        glDrawArrays(GL_TRIANGLES, 0, 3); // Draw the vertices to the screen
+        glBindVertexArray(0); // unbind array
 
         // Draw OpenGL
         glfwSwapBuffers(window);
     }
+    // Properly de-allocate all resources once they've outlived their purpose
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+
     // Terminate GLFW, clearing any resources allocated by GLFW.
     glfwTerminate();
 
